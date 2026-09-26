@@ -1,0 +1,7 @@
+{
+  "name": "Daily Pulse",
+  "description": "Interactive daily brain-training & mini-challenges mobile application with streak tracking, statistics, unlockable badges, and global leaderboard.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+
