@@ -1,10 +1,12 @@
-import React, { useMemo, useState } from 'react';
+import React, {
+  useMemo,
+  useState,
+} from 'react';
 
 import {
-  Trophy,
   Flame,
   Globe2,
-  Info,
+  Trophy,
 } from 'lucide-react';
 
 import {
@@ -19,8 +21,10 @@ import { getFlagEmoji } from '../data/countries';
 
 interface LeaderboardScreenProps {
   users: LeaderboardUser[];
+  loading?: boolean;
   stats: UserStats;
   language: Language;
+  currentUserId: string;
   currentUserName: string;
   currentUserAvatar: string;
   currentUserCountryCode?: string;
@@ -33,8 +37,10 @@ export const LeaderboardScreen: React.FC<
   LeaderboardScreenProps
 > = ({
   users,
+  loading = false,
   stats,
   language,
+  currentUserId,
   currentUserName,
   currentUserAvatar,
   currentUserCountryCode = 'DZ',
@@ -51,9 +57,9 @@ export const LeaderboardScreen: React.FC<
     language === 'ur';
 
   const [scope, setScope] =
-    useState<'global' | 'country'>(
-      'global'
-    );
+    useState<
+      'global' | 'country'
+    >('global');
 
   const [timeframe, setTimeframe] =
     useState<
@@ -84,7 +90,8 @@ export const LeaderboardScreen: React.FC<
       | 'all'
   ): number => {
     if (
-      selectedTimeframe === 'daily'
+      selectedTimeframe ===
+      'daily'
     ) {
       return (
         user.dailyBest ??
@@ -94,7 +101,8 @@ export const LeaderboardScreen: React.FC<
     }
 
     if (
-      selectedTimeframe === 'weekly'
+      selectedTimeframe ===
+      'weekly'
     ) {
       return (
         user.weeklyBest ??
@@ -112,11 +120,15 @@ export const LeaderboardScreen: React.FC<
 
   const myCurrentScore =
     useMemo(() => {
-      if (timeframe === 'daily') {
+      if (
+        timeframe === 'daily'
+      ) {
         return stats.dailyBest;
       }
 
-      if (timeframe === 'weekly') {
+      if (
+        timeframe === 'weekly'
+      ) {
         return stats.totalScore;
       }
 
@@ -128,89 +140,9 @@ export const LeaderboardScreen: React.FC<
       stats.personalBest,
     ]);
 
-  const currentUserRecord: LeaderboardUser =
-    useMemo(
-      () => ({
-        userId: 'current_user',
-        id: 'current_user',
-
-        username:
-          currentUserName || 'You',
-        name:
-          currentUserName || 'You',
-
-        avatar:
-          currentUserAvatar || '⚡',
-
-        countryCode:
-          resolvedCountryCode,
-        countryFlag:
-          resolvedCountryFlag,
-        country:
-          resolvedCountryCode,
-        countryName:
-          resolvedCountryName,
-
-        score: stats.personalBest,
-
-        dailyBest:
-          stats.dailyBest,
-        dailyBestScore:
-          stats.dailyBest,
-
-        weeklyBest:
-          stats.totalScore,
-        weeklyScore:
-          stats.totalScore,
-
-        allTimeBest:
-          stats.personalBest,
-
-        level: stats.level,
-        streak:
-          stats.currentStreak,
-
-        isCurrentUser: true,
-      }),
-      [
-        currentUserName,
-        currentUserAvatar,
-        resolvedCountryCode,
-        resolvedCountryFlag,
-        resolvedCountryName,
-        stats.personalBest,
-        stats.dailyBest,
-        stats.totalScore,
-        stats.level,
-        stats.currentStreak,
-      ]
-    );
-
-  const allUsersWithCurrent =
-    useMemo(() => {
-      const listWithoutCurrent =
-        users.filter(
-          (user) =>
-            user.userId !==
-              'current_user' &&
-            user.id !==
-              'current_user'
-        );
-
-      return [
-        ...listWithoutCurrent,
-        currentUserRecord,
-      ];
-    }, [
-      users,
-      currentUserRecord,
-    ]);
-
   const sortedGlobalList =
     useMemo(() => {
-      return [
-        ...allUsersWithCurrent,
-      ].sort(
+      return [...users].sort(
         (a, b) =>
           getUserScore(
             b,
@@ -222,13 +154,13 @@ export const LeaderboardScreen: React.FC<
           )
       );
     }, [
-      allUsersWithCurrent,
+      users,
       timeframe,
     ]);
 
   const sortedCountryList =
     useMemo(() => {
-      return allUsersWithCurrent
+      return users
         .filter((user) => {
           const userCode = (
             user.countryCode ||
@@ -253,7 +185,7 @@ export const LeaderboardScreen: React.FC<
             )
         );
     }, [
-      allUsersWithCurrent,
+      users,
       resolvedCountryCode,
       timeframe,
     ]);
@@ -264,15 +196,18 @@ export const LeaderboardScreen: React.FC<
         sortedGlobalList.findIndex(
           (user) =>
             user.userId ===
-              'current_user' ||
+              currentUserId ||
             user.id ===
-              'current_user'
+              currentUserId
         );
 
       return index !== -1
         ? index + 1
-        : 1;
-    }, [sortedGlobalList]);
+        : null;
+    }, [
+      sortedGlobalList,
+      currentUserId,
+    ]);
 
   const userCountryRank =
     useMemo(() => {
@@ -280,15 +215,18 @@ export const LeaderboardScreen: React.FC<
         sortedCountryList.findIndex(
           (user) =>
             user.userId ===
-              'current_user' ||
+              currentUserId ||
             user.id ===
-              'current_user'
+              currentUserId
         );
 
       return index !== -1
         ? index + 1
-        : 1;
-    }, [sortedCountryList]);
+        : null;
+    }, [
+      sortedCountryList,
+      currentUserId,
+    ]);
 
   const activeList =
     scope === 'global'
@@ -304,17 +242,26 @@ export const LeaderboardScreen: React.FC<
   return (
     <div
       className="space-y-6"
-      dir={isRtl ? 'rtl' : 'ltr'}
+      dir={
+        isRtl
+          ? 'rtl'
+          : 'ltr'
+      }
     >
       {/* Header */}
 
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
-            <span>{t.leaderboard}</span>
+            <Trophy className="w-5 h-5 text-amber-500" />
+
+            <span>
+              {t.leaderboard}
+            </span>
 
             <span className="text-xs px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 font-bold uppercase font-mono">
-              {scope === 'global'
+              {scope ===
+              'global'
                 ? 'GLOBAL'
                 : resolvedCountryCode}
             </span>
@@ -333,7 +280,9 @@ export const LeaderboardScreen: React.FC<
             </span>
 
             <span className="font-mono font-black text-amber-600 dark:text-amber-400 text-sm">
-              #{userGlobalRank}
+              {userGlobalRank
+                ? `#${userGlobalRank}`
+                : '—'}
             </span>
           </div>
 
@@ -346,22 +295,24 @@ export const LeaderboardScreen: React.FC<
             </span>
 
             <span className="font-mono font-black text-emerald-600 dark:text-emerald-400 text-sm">
-              #{userCountryRank}{' '}
+              {userCountryRank
+                ? `#${userCountryRank}`
+                : '—'}{' '}
               ({resolvedCountryFlag})
             </span>
           </div>
         </div>
       </div>
 
-      {/* Demo notice */}
+      {/* Live status */}
 
-      <div className="p-3.5 rounded-2xl bg-slate-100/80 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 text-xs flex items-start sm:items-center gap-2.5">
-        <Info className="w-4 h-4 text-cyan-500 shrink-0 mt-0.5 sm:mt-0" />
+      <div className="p-3.5 rounded-2xl bg-emerald-500/10 dark:bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-300 text-xs flex items-center gap-2.5">
+        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
 
-        <span className="text-[11px] leading-relaxed">
-          <strong>Notice:</strong>{' '}
-          {t.demoDataNotice ||
-            'Development & Demo Dataset — Architecture prepared for Firebase Realtime / Firestore live rankings.'}
+        <span>
+          {loading
+            ? 'Loading live leaderboard...'
+            : `${users.length} registered player${users.length === 1 ? '' : 's'} in the leaderboard`}
         </span>
       </div>
 
@@ -382,6 +333,7 @@ export const LeaderboardScreen: React.FC<
             }`}
           >
             <Globe2 className="w-3.5 h-3.5" />
+
             <span>
               {t.scopeGlobal ||
                 'Global'}
@@ -463,242 +415,284 @@ export const LeaderboardScreen: React.FC<
         </div>
       </div>
 
-      {/* Podium */}
+      {/* Loading */}
 
-      {activeList.length > 0 && (
-        <div className="grid grid-cols-3 gap-2 sm:gap-4 pt-4 items-end max-w-2xl mx-auto">
-          {top3[1] && (
-            <div className="flex flex-col items-center p-3.5 sm:p-5 rounded-3xl bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 text-center relative shadow-sm">
-              <span className="text-2xl sm:text-3xl mb-1">
-                {top3[1].avatar}
-              </span>
+      {loading && (
+        <div className="py-16 text-center">
+          <div className="inline-flex items-center gap-3 px-5 py-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm">
+            <span className="w-4 h-4 rounded-full border-2 border-amber-500 border-t-transparent animate-spin" />
 
-              <span className="w-6 h-6 rounded-full bg-slate-300 dark:bg-slate-700 text-slate-900 dark:text-white text-xs font-black flex items-center justify-center mb-1">
-                #2
-              </span>
-
-              <h4 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white truncate w-full flex items-center justify-center gap-1">
-                <span>
-                  {top3[1]
-                    .countryFlag ||
-                    getFlagEmoji(
-                      top3[1].countryCode
-                    )}
-                </span>
-
-                <span className="truncate">
-                  {top3[1].username ||
-                    top3[1].name}
-                </span>
-              </h4>
-
-              <span className="text-xs sm:text-sm font-mono font-bold text-slate-700 dark:text-slate-200 mt-0.5">
-                {getUserScore(
-                  top3[1],
-                  timeframe
-                ).toLocaleString()}
-              </span>
-
-              <span className="text-[10px] text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-1">
-                <span>
-                  Lvl {top3[1].level}
-                </span>
-
-                <span>·</span>
-
-                <span className="text-orange-500 font-mono">
-                  {top3[1].streak}d
-                </span>
-              </span>
-            </div>
-          )}
-
-          {top3[0] && (
-            <div className="flex flex-col items-center p-4 sm:p-6 rounded-3xl bg-gradient-to-b from-amber-500/20 via-white dark:via-slate-900 to-amber-50/50 dark:to-slate-950 border border-amber-500/40 text-center relative -mt-4 shadow-xl shadow-amber-500/10">
-              <div className="text-3xl sm:text-4xl mb-1 relative">
-                <span className="absolute -top-3.5 left-1/2 -translate-x-1/2 text-amber-500 text-base">
-                  👑
-                </span>
-
-                {top3[0].avatar}
-              </div>
-
-              <span className="w-7 h-7 rounded-full bg-amber-500 text-slate-950 text-xs font-black flex items-center justify-center mb-1 shadow-md shadow-amber-500/30">
-                #1
-              </span>
-
-              <h4 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white truncate w-full flex items-center justify-center gap-1">
-                <span>
-                  {top3[0]
-                    .countryFlag ||
-                    getFlagEmoji(
-                      top3[0].countryCode
-                    )}
-                </span>
-
-                <span className="truncate">
-                  {top3[0].username ||
-                    top3[0].name}
-                </span>
-              </h4>
-
-              <span className="text-sm sm:text-base font-mono font-black text-amber-600 dark:text-amber-400 mt-0.5">
-                {getUserScore(
-                  top3[0],
-                  timeframe
-                ).toLocaleString()}
-              </span>
-
-              <span className="text-[10px] text-amber-700 dark:text-amber-300 mt-1 flex items-center gap-1 font-semibold">
-                <span>
-                  Lvl {top3[0].level}
-                </span>
-
-                <span>·</span>
-
-                <span className="text-orange-500 font-mono">
-                  {top3[0].streak}d 🔥
-                </span>
-              </span>
-            </div>
-          )}
-
-          {top3[2] && (
-            <div className="flex flex-col items-center p-3.5 sm:p-5 rounded-3xl bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 text-center relative shadow-sm">
-              <span className="text-2xl sm:text-3xl mb-1">
-                {top3[2].avatar}
-              </span>
-
-              <span className="w-6 h-6 rounded-full bg-amber-700 text-white text-xs font-black flex items-center justify-center mb-1">
-                #3
-              </span>
-
-              <h4 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white truncate w-full flex items-center justify-center gap-1">
-                <span>
-                  {top3[2]
-                    .countryFlag ||
-                    getFlagEmoji(
-                      top3[2].countryCode
-                    )}
-                </span>
-
-                <span className="truncate">
-                  {top3[2].username ||
-                    top3[2].name}
-                </span>
-              </h4>
-
-              <span className="text-xs sm:text-sm font-mono font-bold text-slate-700 dark:text-slate-200 mt-0.5">
-                {getUserScore(
-                  top3[2],
-                  timeframe
-                ).toLocaleString()}
-              </span>
-
-              <span className="text-[10px] text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-1">
-                <span>
-                  Lvl {top3[2].level}
-                </span>
-
-                <span>·</span>
-
-                <span className="text-orange-500 font-mono">
-                  {top3[2].streak}d
-                </span>
-              </span>
-            </div>
-          )}
+            <span className="text-sm font-semibold text-slate-600 dark:text-slate-300">
+              Loading leaderboard...
+            </span>
+          </div>
         </div>
       )}
+
+      {/* Empty */}
+
+      {!loading &&
+        activeList.length === 0 && (
+          <div className="py-16 text-center rounded-3xl bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800">
+            <Trophy className="w-10 h-10 mx-auto text-amber-500 mb-3" />
+
+            <h3 className="font-black text-slate-900 dark:text-white">
+              {t.leaderboard}
+            </h3>
+
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+              No players yet.
+            </p>
+          </div>
+        )}
+
+      {/* Podium */}
+
+      {!loading &&
+        activeList.length > 0 && (
+          <div className="grid grid-cols-3 gap-2 sm:gap-4 pt-4 items-end max-w-2xl mx-auto">
+            {top3[1] && (
+              <div className="flex flex-col items-center p-3.5 sm:p-5 rounded-3xl bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 text-center relative shadow-sm">
+                <span className="text-2xl sm:text-3xl mb-1">
+                  {top3[1].avatar}
+                </span>
+
+                <span className="w-6 h-6 rounded-full bg-slate-300 dark:bg-slate-700 text-slate-900 dark:text-white text-xs font-black flex items-center justify-center mb-1">
+                  #2
+                </span>
+
+                <h4 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white truncate w-full flex items-center justify-center gap-1">
+                  <span>
+                    {top3[1]
+                      .countryFlag ||
+                      getFlagEmoji(
+                        top3[1]
+                          .countryCode
+                      )}
+                  </span>
+
+                  <span className="truncate">
+                    {top3[1]
+                      .username ||
+                      top3[1].name}
+                  </span>
+                </h4>
+
+                <span className="text-xs sm:text-sm font-mono font-bold text-slate-700 dark:text-slate-200 mt-0.5">
+                  {getUserScore(
+                    top3[1],
+                    timeframe
+                  ).toLocaleString()}
+                </span>
+
+                <span className="text-[10px] text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-1">
+                  <span>
+                    Lvl {top3[1].level}
+                  </span>
+
+                  <span>·</span>
+
+                  <span className="text-orange-500 font-mono">
+                    {top3[1].streak}d
+                  </span>
+                </span>
+              </div>
+            )}
+
+            {top3[0] && (
+              <div className="flex flex-col items-center p-4 sm:p-6 rounded-3xl bg-gradient-to-b from-amber-500/20 via-white dark:via-slate-900 to-amber-50/50 dark:to-slate-950 border border-amber-500/40 text-center relative -mt-4 shadow-xl shadow-amber-500/10">
+                <div className="text-3xl sm:text-4xl mb-1 relative">
+                  <span className="absolute -top-3.5 left-1/2 -translate-x-1/2 text-amber-500 text-base">
+                    👑
+                  </span>
+
+                  {top3[0].avatar}
+                </div>
+
+                <span className="w-7 h-7 rounded-full bg-amber-500 text-slate-950 text-xs font-black flex items-center justify-center mb-1 shadow-md shadow-amber-500/30">
+                  #1
+                </span>
+
+                <h4 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white truncate w-full flex items-center justify-center gap-1">
+                  <span>
+                    {top3[0]
+                      .countryFlag ||
+                      getFlagEmoji(
+                        top3[0]
+                          .countryCode
+                      )}
+                  </span>
+
+                  <span className="truncate">
+                    {top3[0]
+                      .username ||
+                      top3[0].name}
+                  </span>
+                </h4>
+
+                <span className="text-sm sm:text-base font-mono font-black text-amber-600 dark:text-amber-400 mt-0.5">
+                  {getUserScore(
+                    top3[0],
+                    timeframe
+                  ).toLocaleString()}
+                </span>
+
+                <span className="text-[10px] text-amber-700 dark:text-amber-300 mt-1 flex items-center gap-1 font-semibold">
+                  <span>
+                    Lvl {top3[0].level}
+                  </span>
+
+                  <span>·</span>
+
+                  <span className="text-orange-500 font-mono">
+                    {top3[0].streak}d 🔥
+                  </span>
+                </span>
+              </div>
+            )}
+
+            {top3[2] && (
+              <div className="flex flex-col items-center p-3.5 sm:p-5 rounded-3xl bg-white dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 text-center relative shadow-sm">
+                <span className="text-2xl sm:text-3xl mb-1">
+                  {top3[2].avatar}
+                </span>
+
+                <span className="w-6 h-6 rounded-full bg-amber-700 text-white text-xs font-black flex items-center justify-center mb-1">
+                  #3
+                </span>
+
+                <h4 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white truncate w-full flex items-center justify-center gap-1">
+                  <span>
+                    {top3[2]
+                      .countryFlag ||
+                      getFlagEmoji(
+                        top3[2]
+                          .countryCode
+                      )}
+                  </span>
+
+                  <span className="truncate">
+                    {top3[2]
+                      .username ||
+                      top3[2].name}
+                  </span>
+                </h4>
+
+                <span className="text-xs sm:text-sm font-mono font-bold text-slate-700 dark:text-slate-200 mt-0.5">
+                  {getUserScore(
+                    top3[2],
+                    timeframe
+                  ).toLocaleString()}
+                </span>
+
+                <span className="text-[10px] text-slate-500 dark:text-slate-400 mt-1 flex items-center gap-1">
+                  <span>
+                    Lvl {top3[2].level}
+                  </span>
+
+                  <span>·</span>
+
+                  <span className="text-orange-500 font-mono">
+                    {top3[2].streak}d
+                  </span>
+                </span>
+              </div>
+            )}
+          </div>
+        )}
 
       {/* Remaining players */}
 
       <div className="space-y-2">
-        {remaining.map(
-          (user, index) => {
-            const rank =
-              index + 4;
+        {!loading &&
+          remaining.map(
+            (player, index) => {
+              const rank =
+                index + 4;
 
-            const isMe =
-              user.userId ===
-                'current_user' ||
-              user.id ===
-                'current_user';
+              const isMe =
+                player.userId ===
+                  currentUserId ||
+                player.id ===
+                  currentUserId;
 
-            return (
-              <div
-                key={
-                  user.userId ||
-                  user.id ||
-                  index
-                }
-                className={`flex items-center justify-between p-3.5 rounded-2xl border transition-colors shadow-sm ${
-                  isMe
-                    ? 'bg-amber-500/10 border-amber-400 dark:border-amber-500/50 ring-1 ring-amber-400/40'
-                    : 'bg-white dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
-                }`}
-              >
-                <div className="flex items-center gap-3 truncate">
-                  <span className="font-mono font-bold text-xs text-slate-400 w-7 text-center shrink-0">
-                    #{rank}
-                  </span>
+              return (
+                <div
+                  key={
+                    player.userId ||
+                    player.id ||
+                    index
+                  }
+                  className={`flex items-center justify-between p-3.5 rounded-2xl border transition-colors shadow-sm ${
+                    isMe
+                      ? 'bg-amber-500/10 border-amber-400 dark:border-amber-500/50 ring-1 ring-amber-400/40'
+                      : 'bg-white dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700'
+                  }`}
+                >
+                  <div className="flex items-center gap-3 truncate">
+                    <span className="font-mono font-bold text-xs text-slate-400 w-7 text-center shrink-0">
+                      #{rank}
+                    </span>
 
-                  <span className="text-xl shrink-0">
-                    {user.avatar}
-                  </span>
+                    <span className="text-xl shrink-0">
+                      {player.avatar}
+                    </span>
 
-                  <div className="truncate">
-                    <div className="flex items-center gap-1.5 truncate">
-                      <span className="text-base leading-none">
-                        {user.countryFlag ||
-                          getFlagEmoji(
-                            user.countryCode
-                          )}
-                      </span>
-
-                      <h4 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white truncate">
-                        {user.username ||
-                          user.name}
-                      </h4>
-
-                      {isMe && (
-                        <span className="px-1.5 py-0.5 rounded bg-amber-500 text-slate-950 text-[9px] font-black uppercase">
-                          You
+                    <div className="truncate">
+                      <div className="flex items-center gap-1.5 truncate">
+                        <span className="text-base leading-none">
+                          {player.countryFlag ||
+                            getFlagEmoji(
+                              player.countryCode
+                            )}
                         </span>
-                      )}
-                    </div>
 
-                    <div className="flex items-center gap-2 text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
-                      <span>
-                        Lvl {user.level}
-                      </span>
+                        <h4 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white truncate">
+                          {player.username ||
+                            player.name}
+                        </h4>
 
-                      <span>·</span>
+                        {isMe && (
+                          <span className="px-1.5 py-0.5 rounded bg-amber-500 text-slate-950 text-[9px] font-black uppercase">
+                            You
+                          </span>
+                        )}
+                      </div>
 
-                      <span className="flex items-center text-orange-500 gap-0.5 font-mono">
-                        <Flame className="w-3 h-3 fill-current" />
-                        {user.streak}d
-                      </span>
+                      <div className="flex items-center gap-2 text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
+                        <span>
+                          Lvl {player.level}
+                        </span>
+
+                        <span>
+                          ·
+                        </span>
+
+                        <span className="flex items-center text-orange-500 gap-0.5 font-mono">
+                          <Flame className="w-3 h-3 fill-current" />
+
+                          {player.streak}d
+                        </span>
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                <div className="text-end font-mono shrink-0">
-                  <span className="text-xs sm:text-sm font-bold text-slate-900 dark:text-slate-200">
-                    {getUserScore(
-                      user,
-                      timeframe
-                    ).toLocaleString()}
-                  </span>
+                  <div className="text-end font-mono shrink-0">
+                    <span className="text-xs sm:text-sm font-bold text-slate-900 dark:text-slate-200">
+                      {getUserScore(
+                        player,
+                        timeframe
+                      ).toLocaleString()}
+                    </span>
 
-                  <span className="text-[9px] text-slate-400 block">
-                    {t.score}
-                  </span>
+                    <span className="text-[9px] text-slate-400 block">
+                      {t.score}
+                    </span>
+                  </div>
                 </div>
-              </div>
-            );
-          }
-        )}
+              );
+            }
+          )}
       </div>
 
       {/* Current user */}
@@ -708,9 +702,12 @@ export const LeaderboardScreen: React.FC<
           <div className="flex items-center gap-3">
             <span className="w-9 h-9 rounded-2xl bg-amber-500 text-slate-950 font-black text-xs flex items-center justify-center shadow-md">
               #
-              {scope === 'global'
-                ? userGlobalRank
-                : userCountryRank}
+              {scope ===
+              'global'
+                ? userGlobalRank ??
+                  '—'
+                : userCountryRank ??
+                  '—'}
             </span>
 
             <div className="w-10 h-10 rounded-2xl bg-slate-100 dark:bg-slate-950 border border-amber-500/40 flex items-center justify-center text-xl shrink-0">
@@ -728,18 +725,24 @@ export const LeaderboardScreen: React.FC<
                   {currentUserName}
                 </h4>
 
-                <span className="text-[9px] font-bold px-1.5 py-0.5 bg-amber-500/20 text-amber-600 dark:text-amber-300 rounded-full border border-amber-500/30">
-                  {t.proMember}
+                <span className="text-[9px] font-bold px-1.5 py-0.5 bg-emerald-500/20 text-emerald-600 dark:text-emerald-300 rounded-full border border-emerald-500/30">
+                  LIVE
                 </span>
               </div>
 
               <p className="text-[11px] text-amber-600 dark:text-amber-400 font-medium mt-0.5">
                 {t.yourRank ||
                   'Global'}
-                : #{userGlobalRank} ·{' '}
+                : #
+                {userGlobalRank ??
+                  '—'}{' '}
+                ·{' '}
                 {t.countryRank ||
                   'Country'}
-                : #{userCountryRank} (
+                : #
+                {userCountryRank ??
+                  '—'}{' '}
+                (
                 {resolvedCountryCode})
               </p>
             </div>

@@ -1,4 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, {
+  useEffect,
+  useState,
+} from 'react';
 
 import {
   TabType,
@@ -10,12 +13,12 @@ import {
   AppSettings,
   DailyChallengeCard,
   ChallengeCategory,
+  LeaderboardUser,
 } from './types';
 
 import {
   initialFeaturedChallenges,
   initialBadges,
-  initialLeaderboard,
   initialStats,
   initialSettings,
 } from './data/initialData';
@@ -29,6 +32,7 @@ import {
   loadUserData,
   saveUserData,
   saveHistoryItem,
+  loadLeaderboard,
 } from './services/firestoreService';
 
 import { challengeEngine } from './utils/challengeEngine';
@@ -68,9 +72,19 @@ export default function App() {
   const [cloudDataReady, setCloudDataReady] =
     useState(false);
 
-  // --------------------------------------------------
-  // AUTH STATE
-  // --------------------------------------------------
+  const [
+    leaderboardUsers,
+    setLeaderboardUsers,
+  ] = useState<LeaderboardUser[]>([]);
+
+  const [
+    leaderboardLoading,
+    setLeaderboardLoading,
+  ] = useState(false);
+
+  /* --------------------------------------------------
+     AUTH STATE
+  -------------------------------------------------- */
 
   useEffect(() => {
     if (user || isGuest) {
@@ -87,12 +101,16 @@ export default function App() {
 
   const handleLogout = async () => {
     await logout();
+
     setHasEnteredApp(false);
     setCurrentTab('home');
     setCloudDataReady(false);
+    setLeaderboardUsers([]);
   };
 
-  const handleTabChange = (tab: TabType) => {
+  const handleTabChange = (
+    tab: TabType
+  ) => {
     if (
       tab === 'leaderboard' &&
       (!user || !user.emailVerified)
@@ -104,23 +122,29 @@ export default function App() {
     setCurrentTab(tab);
   };
 
-  // --------------------------------------------------
-  // PERSISTENT STATES
-  // --------------------------------------------------
+  /* --------------------------------------------------
+     PERSISTENT STATES
+  -------------------------------------------------- */
 
   const [stats, setStats] =
     useState<UserStats>(() =>
-      storageService.loadStats(initialStats)
+      storageService.loadStats(
+        initialStats
+      )
     );
 
   const [badges, setBadges] =
     useState<Badge[]>(() =>
-      storageService.loadBadges(initialBadges)
+      storageService.loadBadges(
+        initialBadges
+      )
     );
 
   const [settings, setSettings] =
     useState<AppSettings>(() =>
-      storageService.loadSettings(initialSettings)
+      storageService.loadSettings(
+        initialSettings
+      )
     );
 
   const [history, setHistory] =
@@ -135,9 +159,9 @@ export default function App() {
       )
     );
 
-  // --------------------------------------------------
-  // ACTIVE SESSION STATE
-  // --------------------------------------------------
+  /* --------------------------------------------------
+     ACTIVE SESSION STATE
+  -------------------------------------------------- */
 
   const [setupModalOpen, setSetupModalOpen] =
     useState(false);
@@ -164,9 +188,9 @@ export default function App() {
     setIsGeneratingQuestions,
   ] = useState(false);
 
-  // --------------------------------------------------
-  // FIRESTORE ACCOUNT SYNC
-  // --------------------------------------------------
+  /* --------------------------------------------------
+     FIRESTORE ACCOUNT SYNC
+  -------------------------------------------------- */
 
   useEffect(() => {
     let cancelled = false;
@@ -178,97 +202,154 @@ export default function App() {
 
     setCloudDataReady(false);
 
-    const loadCloudData = async () => {
-      try {
-        const data = await loadUserData(user.uid);
-
-        if (cancelled) return;
-
-        /*
-         * If this is the user's first login and there is no
-         * Firestore data yet, migrate the existing local data
-         * to the user's Firebase account.
-         */
-        if (!data.stats) {
-          const localStats =
-            storageService.loadStats(initialStats);
-
-          const localBadges =
-            storageService.loadBadges(initialBadges);
-
-          const localSettings =
-            storageService.loadSettings(initialSettings);
-
-          const localFeaturedCards =
-            storageService.loadFeaturedCards(
-              initialFeaturedChallenges
+    const loadCloudData =
+      async () => {
+        try {
+          const data =
+            await loadUserData(
+              user.uid
             );
-
-          const localHistory =
-            storageService.loadHistory();
-
-          await saveUserData(user.uid, {
-            stats: localStats,
-            badges: localBadges,
-            settings: localSettings,
-            featuredCards: localFeaturedCards,
-          });
-
-          if (localHistory.length > 0) {
-            await Promise.all(
-              localHistory.map((result) =>
-                saveHistoryItem(
-                  user.uid,
-                  result
-                )
-              )
-            );
-          }
 
           if (cancelled) return;
 
-          setStats(localStats);
-          setBadges(localBadges);
-          setSettings(localSettings);
-          setFeaturedCards(
-            localFeaturedCards
+          /*
+           * First login:
+           * migrate local data to Firebase.
+           */
+          if (!data.stats) {
+            const localStats =
+              storageService.loadStats(
+                initialStats
+              );
+
+            const localBadges =
+              storageService.loadBadges(
+                initialBadges
+              );
+
+            const localSettings =
+              storageService.loadSettings(
+                initialSettings
+              );
+
+            const localFeaturedCards =
+              storageService.loadFeaturedCards(
+                initialFeaturedChallenges
+              );
+
+            const localHistory =
+              storageService.loadHistory();
+
+            await saveUserData(
+              user.uid,
+              {
+                stats: localStats,
+                badges: localBadges,
+                settings:
+                  localSettings,
+                featuredCards:
+                  localFeaturedCards,
+                history:
+                  localHistory,
+              },
+              {
+                username:
+                  user.displayName?.trim() ||
+                  localSettings.profileName ||
+                  'User',
+
+                avatar:
+                  localSettings.avatar ||
+                  '⚡',
+
+                countryCode:
+                  localSettings.country ||
+                  'DZ',
+
+                countryName:
+                  localSettings.countryName ||
+                  'Algeria',
+
+                countryFlag:
+                  localSettings.countryFlag ||
+                  '🇩🇿',
+              }
+            );
+
+            if (
+              localHistory.length > 0
+            ) {
+              await Promise.all(
+                localHistory.map(
+                  (result) =>
+                    saveHistoryItem(
+                      user.uid,
+                      result
+                    )
+                )
+              );
+            }
+
+            if (cancelled) return;
+
+            setStats(localStats);
+            setBadges(localBadges);
+            setSettings(
+              localSettings
+            );
+            setFeaturedCards(
+              localFeaturedCards
+            );
+            setHistory(
+              localHistory
+            );
+
+            setCloudDataReady(
+              true
+            );
+
+            return;
+          }
+
+          /* Existing cloud account */
+
+          setStats(data.stats);
+
+          setBadges(
+            data.badges ??
+              initialBadges
           );
-          setHistory(localHistory);
 
-          setCloudDataReady(true);
-          return;
+          setSettings(
+            data.settings ??
+              initialSettings
+          );
+
+          setFeaturedCards(
+            data.featuredCards ??
+              initialFeaturedChallenges
+          );
+
+          setHistory(
+            data.history
+          );
+
+          setCloudDataReady(
+            true
+          );
+        } catch (error) {
+          console.error(
+            'Failed to load cloud data:',
+            error
+          );
+
+          if (!cancelled) {
+            setCloudDataReady(
+              true
+            );
+          }
         }
-
-        // Existing cloud account data.
-        setStats(data.stats);
-
-        setBadges(
-          data.badges ?? initialBadges
-        );
-
-        setSettings(
-          data.settings ?? initialSettings
-        );
-
-        setFeaturedCards(
-          data.featuredCards ??
-            initialFeaturedChallenges
-        );
-
-        setHistory(data.history);
-
-        setCloudDataReady(true);
-      } catch (error) {
-        console.error(
-          'Failed to load cloud data:',
-          error
-        );
-
-        if (!cancelled) {
-          setCloudDataReady(true);
-        }
-      }
-    };
+      };
 
     void loadCloudData();
 
@@ -277,9 +358,39 @@ export default function App() {
     };
   }, [user]);
 
-  // --------------------------------------------------
-  // SAVE ACCOUNT DATA TO FIRESTORE
-  // --------------------------------------------------
+  /* --------------------------------------------------
+     LOAD REAL LEADERBOARD
+  -------------------------------------------------- */
+
+  const refreshLeaderboard =
+    async () => {
+      if (!user) {
+        setLeaderboardUsers([]);
+        return;
+      }
+
+      setLeaderboardLoading(
+        true
+      );
+
+      try {
+        const users =
+          await loadLeaderboard();
+
+        setLeaderboardUsers(
+          users
+        );
+      } catch (error) {
+        console.error(
+          'Failed to load leaderboard:',
+          error
+        );
+      } finally {
+        setLeaderboardLoading(
+          false
+        );
+      }
+    };
 
   useEffect(() => {
     if (
@@ -289,17 +400,65 @@ export default function App() {
       return;
     }
 
-    void saveUserData(user.uid, {
-      stats,
-      badges,
-      settings,
-      featuredCards,
-    }).catch((error) => {
-      console.error(
-        'Failed to save cloud data:',
-        error
-      );
-    });
+    void refreshLeaderboard();
+  }, [
+    user,
+    cloudDataReady,
+  ]);
+
+  /* --------------------------------------------------
+     SAVE ACCOUNT DATA
+  -------------------------------------------------- */
+
+  useEffect(() => {
+    if (
+      !user ||
+      !cloudDataReady
+    ) {
+      return;
+    }
+
+    void saveUserData(
+      user.uid,
+      {
+        stats,
+        badges,
+        settings,
+        featuredCards,
+        history,
+      },
+      {
+        username:
+          user.displayName?.trim() ||
+          settings.profileName ||
+          'User',
+
+        avatar:
+          settings.avatar ||
+          '⚡',
+
+        countryCode:
+          settings.country ||
+          'DZ',
+
+        countryName:
+          settings.countryName ||
+          'Algeria',
+
+        countryFlag:
+          settings.countryFlag ||
+          '🇩🇿',
+      }
+    )
+      .then(() =>
+        refreshLeaderboard()
+      )
+      .catch((error) => {
+        console.error(
+          'Failed to save cloud data:',
+          error
+        );
+      });
   }, [
     user,
     cloudDataReady,
@@ -307,28 +466,41 @@ export default function App() {
     badges,
     settings,
     featuredCards,
+    history,
   ]);
 
-  // --------------------------------------------------
-  // LOCAL STORAGE SYNC
-  // --------------------------------------------------
+  /* --------------------------------------------------
+     LOCAL STORAGE SYNC
+  -------------------------------------------------- */
 
   useEffect(() => {
     if (!cloudDataReady) return;
 
-    storageService.saveStats(stats);
-  }, [stats, cloudDataReady]);
+    storageService.saveStats(
+      stats
+    );
+  }, [
+    stats,
+    cloudDataReady,
+  ]);
 
   useEffect(() => {
     if (!cloudDataReady) return;
 
-    storageService.saveBadges(badges);
-  }, [badges, cloudDataReady]);
+    storageService.saveBadges(
+      badges
+    );
+  }, [
+    badges,
+    cloudDataReady,
+  ]);
 
   useEffect(() => {
     if (!cloudDataReady) return;
 
-    storageService.saveSettings(settings);
+    storageService.saveSettings(
+      settings
+    );
 
     sounds.enabled =
       settings.soundEnabled;
@@ -364,7 +536,9 @@ export default function App() {
       }
     };
 
-    if (settings.theme === 'dark') {
+    if (
+      settings.theme === 'dark'
+    ) {
       applyTheme(true);
     } else if (
       settings.theme === 'light'
@@ -403,8 +577,13 @@ export default function App() {
   useEffect(() => {
     if (!cloudDataReady) return;
 
-    storageService.saveHistory(history);
-  }, [history, cloudDataReady]);
+    storageService.saveHistory(
+      history
+    );
+  }, [
+    history,
+    cloudDataReady,
+  ]);
 
   useEffect(() => {
     if (!cloudDataReady) return;
@@ -424,9 +603,9 @@ export default function App() {
     stats.dailyFeaturedCompletedDate ===
     today;
 
-  // --------------------------------------------------
-  // BADGES
-  // --------------------------------------------------
+  /* --------------------------------------------------
+     BADGES
+  -------------------------------------------------- */
 
   const evaluateBadges = (
     newStats: UserStats,
@@ -439,108 +618,131 @@ export default function App() {
         }
 
         let shouldUnlock = false;
-
         let currentValue =
           badge.currentValue;
 
         if (
-          badge.id === 'first_challenge' &&
-          newStats.totalChallengesCompleted >= 1
+          badge.id ===
+            'first_challenge' &&
+          newStats.totalChallengesCompleted >=
+            1
         ) {
           shouldUnlock = true;
           currentValue = 1;
         } else if (
-          badge.id === 'perfect_score' &&
-          lastSessionAccuracy === 100
+          badge.id ===
+            'perfect_score' &&
+          lastSessionAccuracy ===
+            100
         ) {
           shouldUnlock = true;
           currentValue = 1;
         } else if (
           badge.id === 'streak_3' &&
-          newStats.currentStreak >= 3
+          newStats.currentStreak >=
+            3
         ) {
           shouldUnlock = true;
           currentValue =
             newStats.currentStreak;
         } else if (
           badge.id === 'streak_7' &&
-          newStats.currentStreak >= 7
+          newStats.currentStreak >=
+            7
         ) {
           shouldUnlock = true;
           currentValue =
             newStats.currentStreak;
         } else if (
           badge.id === 'streak_30' &&
-          newStats.currentStreak >= 30
+          newStats.currentStreak >=
+            30
         ) {
           shouldUnlock = true;
           currentValue =
             newStats.currentStreak;
         } else if (
           badge.id === 'xp_1000' &&
-          newStats.totalXp >= 1000
+          newStats.totalXp >=
+            1000
         ) {
           shouldUnlock = true;
           currentValue =
             newStats.totalXp;
         } else if (
           badge.id === 'xp_5000' &&
-          newStats.totalXp >= 5000
+          newStats.totalXp >=
+            5000
         ) {
           shouldUnlock = true;
           currentValue =
             newStats.totalXp;
         } else if (
-          badge.id === 'challenges_100' &&
-          newStats.totalCorrectAnswers >= 100
+          badge.id ===
+            'challenges_100' &&
+          newStats.totalCorrectAnswers >=
+            100
         ) {
           shouldUnlock = true;
           currentValue =
             newStats.totalCorrectAnswers;
         } else if (
-          badge.id === 'challenges_500' &&
-          newStats.totalCorrectAnswers >= 500
+          badge.id ===
+            'challenges_500' &&
+          newStats.totalCorrectAnswers >=
+            500
         ) {
           shouldUnlock = true;
           currentValue =
             newStats.totalCorrectAnswers;
         } else if (
-          badge.id === 'logic_master' &&
-          newStats.categoryProficiency.logic >= 90
+          badge.id ===
+            'logic_master' &&
+          newStats.categoryProficiency.logic >=
+            90
         ) {
           shouldUnlock = true;
           currentValue =
             newStats.categoryProficiency.logic;
         } else if (
-          badge.id === 'math_master' &&
-          newStats.categoryProficiency.math >= 90
+          badge.id ===
+            'math_master' &&
+          newStats.categoryProficiency.math >=
+            90
         ) {
           shouldUnlock = true;
           currentValue =
             newStats.categoryProficiency.math;
         } else if (
-          badge.id === 'knowledge_master' &&
-          newStats.categoryProficiency.knowledge >= 90
+          badge.id ===
+            'knowledge_master' &&
+          newStats.categoryProficiency.knowledge >=
+            90
         ) {
           shouldUnlock = true;
           currentValue =
             newStats.categoryProficiency.knowledge;
         } else if (
-          badge.id === 'focus_master' &&
-          newStats.categoryProficiency.focus >= 90
+          badge.id ===
+            'focus_master' &&
+          newStats.categoryProficiency.focus >=
+            90
         ) {
           shouldUnlock = true;
           currentValue =
             newStats.categoryProficiency.focus;
         } else if (
-          badge.id === 'speed_master' &&
-          newStats.categoryProficiency.speed >= 90
+          badge.id ===
+            'speed_master' &&
+          newStats.categoryProficiency.speed >=
+            90
         ) {
           shouldUnlock = true;
           currentValue =
             newStats.categoryProficiency.speed;
         } else if (
-          badge.id === 'complete_all_five' &&
+          badge.id ===
+            'complete_all_five' &&
           newStats.dailyFeaturedCompletedDate ===
             today
         ) {
@@ -564,9 +766,9 @@ export default function App() {
     );
   };
 
-  // --------------------------------------------------
-  // AI QUESTION GENERATION
-  // --------------------------------------------------
+  /* --------------------------------------------------
+     AI QUESTION GENERATION
+  -------------------------------------------------- */
 
   const generateAndStartSession =
     async (
@@ -578,7 +780,10 @@ export default function App() {
       }
 
       sounds.playTap();
-      setIsGeneratingQuestions(true);
+
+      setIsGeneratingQuestions(
+        true
+      );
 
       try {
         const result =
@@ -589,23 +794,28 @@ export default function App() {
 
         if (
           !result.questions ||
-          result.questions.length === 0
+          result.questions.length ===
+            0
         ) {
           throw new Error(
             'No questions were generated.'
           );
         }
 
-        setLastSetupConfig(config);
+        setLastSetupConfig(
+          config
+        );
 
         setActiveSession({
           questions:
             result.questions,
+
           config: {
             ...config,
             questionCount:
               result.questions.length,
           },
+
           isFeatured,
         });
       } catch (error) {
@@ -622,16 +832,20 @@ export default function App() {
         if (
           fallbackQuestions.length > 0
         ) {
-          setLastSetupConfig(config);
+          setLastSetupConfig(
+            config
+          );
 
           setActiveSession({
             questions:
               fallbackQuestions,
+
             config: {
               ...config,
               questionCount:
                 fallbackQuestions.length,
             },
+
             isFeatured,
           });
         }
@@ -642,9 +856,9 @@ export default function App() {
       }
     };
 
-  // --------------------------------------------------
-  // DAILY FEATURED
-  // --------------------------------------------------
+  /* --------------------------------------------------
+     DAILY FEATURED
+  -------------------------------------------------- */
 
   const handleStartFeaturedSession =
     () => {
@@ -667,26 +881,27 @@ export default function App() {
       });
     };
 
-  // --------------------------------------------------
-  // QUICK PLAY
-  // --------------------------------------------------
+  /* --------------------------------------------------
+     QUICK PLAY
+  -------------------------------------------------- */
 
-  const handleQuickPlay = async () => {
-    const config: SessionConfig = {
-      type: 'auto',
-      difficulty: 'auto',
-      questionCount: 5,
+  const handleQuickPlay =
+    async () => {
+      const config: SessionConfig = {
+        type: 'auto',
+        difficulty: 'auto',
+        questionCount: 5,
+      };
+
+      await generateAndStartSession(
+        config,
+        false
+      );
     };
 
-    await generateAndStartSession(
-      config,
-      false
-    );
-  };
-
-  // --------------------------------------------------
-  // CUSTOM SESSION
-  // --------------------------------------------------
+  /* --------------------------------------------------
+     CUSTOM SESSION
+  -------------------------------------------------- */
 
   const handleStartCustomSession =
     async (
@@ -700,9 +915,9 @@ export default function App() {
       );
     };
 
-  // --------------------------------------------------
-  // SINGLE CATEGORY
-  // --------------------------------------------------
+  /* --------------------------------------------------
+     SINGLE CATEGORY
+  -------------------------------------------------- */
 
   const handlePlaySingleCategory =
     async (
@@ -721,9 +936,9 @@ export default function App() {
       );
     };
 
-  // --------------------------------------------------
-  // FINISH SESSION
-  // --------------------------------------------------
+  /* --------------------------------------------------
+     FINISH SESSION
+  -------------------------------------------------- */
 
   const handleFinishSession = (
     result: SessionResult
@@ -925,8 +1140,6 @@ export default function App() {
       result.accuracy
     );
 
-    // Immediately save the completed
-    // session to Firestore for logged-in users.
     if (user) {
       void saveHistoryItem(
         user.uid,
@@ -940,9 +1153,9 @@ export default function App() {
     }
   };
 
-  // --------------------------------------------------
-  // REWARD XP
-  // --------------------------------------------------
+  /* --------------------------------------------------
+     REWARD XP
+  -------------------------------------------------- */
 
   const handleRewardXp = (
     amount: number
@@ -969,21 +1182,17 @@ export default function App() {
     evaluateBadges(newStats);
   };
 
-  // --------------------------------------------------
-  // RESET
-  // --------------------------------------------------
+  /* --------------------------------------------------
+     RESET
+  -------------------------------------------------- */
 
   const handleResetData = () => {
     storageService.clearAllData();
 
     setStats(initialStats);
-
     setBadges(initialBadges);
-
     setSettings(initialSettings);
-
     setHistory([]);
-
     setFeaturedCards(
       initialFeaturedChallenges
     );
@@ -991,9 +1200,9 @@ export default function App() {
     sounds.playTap();
   };
 
-  // --------------------------------------------------
-  // AUTH LOADING
-  // --------------------------------------------------
+  /* --------------------------------------------------
+     AUTH LOADING
+  -------------------------------------------------- */
 
   if (authLoading) {
     return (
@@ -1038,9 +1247,9 @@ export default function App() {
     );
   }
 
-  // --------------------------------------------------
-  // AUTH SCREEN / GUEST MODE
-  // --------------------------------------------------
+  /* --------------------------------------------------
+     AUTH SCREEN / GUEST MODE
+  -------------------------------------------------- */
 
   if (
     !hasEnteredApp ||
@@ -1048,15 +1257,19 @@ export default function App() {
   ) {
     return (
       <AuthScreen
-        language={settings.language}
-        onSuccess={handleAuthSuccess}
+        language={
+          settings.language
+        }
+        onSuccess={
+          handleAuthSuccess
+        }
       />
     );
   }
 
-  // --------------------------------------------------
-  // EMAIL VERIFICATION
-  // --------------------------------------------------
+  /* --------------------------------------------------
+     EMAIL VERIFICATION
+  -------------------------------------------------- */
 
   if (
     user &&
@@ -1064,16 +1277,20 @@ export default function App() {
   ) {
     return (
       <AuthScreen
-        language={settings.language}
+        language={
+          settings.language
+        }
         initialMode="verification"
-        onSuccess={handleAuthSuccess}
+        onSuccess={
+          handleAuthSuccess
+        }
       />
     );
   }
 
-  // --------------------------------------------------
-  // CLOUD DATA LOADING
-  // --------------------------------------------------
+  /* --------------------------------------------------
+     CLOUD DATA LOADING
+  -------------------------------------------------- */
 
   if (
     user &&
@@ -1121,16 +1338,20 @@ export default function App() {
     );
   }
 
-  // --------------------------------------------------
-  // RENDER APP
-  // --------------------------------------------------
+  /* --------------------------------------------------
+     RENDER APP
+  -------------------------------------------------- */
 
   return (
     <>
       <AppLayout
         currentTab={currentTab}
-        onTabChange={handleTabChange}
-        language={settings.language}
+        onTabChange={
+          handleTabChange
+        }
+        language={
+          settings.language
+        }
         stats={stats}
         settings={settings}
         onQuickPlay={
@@ -1214,14 +1435,21 @@ export default function App() {
         {currentTab === 'leaderboard' && (
           <LeaderboardScreen
             users={
-              initialLeaderboard
+              leaderboardUsers
+            }
+            loading={
+              leaderboardLoading
             }
             stats={stats}
             language={
               settings.language
             }
+            currentUserId={
+              user?.uid || ''
+            }
             currentUserName={
               user?.displayName?.trim() ||
+              settings.profileName ||
               'User'
             }
             currentUserAvatar={
@@ -1363,6 +1591,7 @@ export default function App() {
       </AppLayout>
 
       {/* LOGIN REQUIRED FOR LEADERBOARD */}
+
       {authModalOpen && (
         <AuthScreen
           language={
@@ -1391,6 +1620,7 @@ export default function App() {
       )}
 
       {/* AI GENERATING OVERLAY */}
+
       {isGeneratingQuestions && (
         <div
           style={{
